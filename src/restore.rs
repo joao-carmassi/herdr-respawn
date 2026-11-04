@@ -236,6 +236,7 @@ pub fn run(
         .collect();
 
     let mut changed = false;
+    let mut started = Vec::new();
     for step in plan(&wanted, &snap, &procs) {
         let (service, target) = match step {
             Step::Skip { service, reason } => {
@@ -286,6 +287,7 @@ pub fn run(
                 "sent, but no process seen yet"
             }
         );
+        started.push(service.clone());
         if let Some(s) = all.services.iter_mut().find(|s| s.name == service) {
             if s.pane_id != pane || s.workspace_id != workspace {
                 s.pane_id = pane;
@@ -296,6 +298,9 @@ pub fn run(
     }
     if changed {
         store::save_to(services_path, &all)?;
+    }
+    if !started.is_empty() {
+        h.notify("Respawn: restarted", &started.join(", "));
     }
     Ok(())
 }

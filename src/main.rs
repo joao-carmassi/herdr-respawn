@@ -152,7 +152,7 @@ fn save_pane(
     let name = match (given, from_ctx, existing) {
         (Some(n), _, _) => n.clone(),
         (None, true, Some(i)) => st.services[i].name.clone(),
-        (None, true, None) => unique_name(&st, cwd.rsplit(['\\', '/']).next().unwrap_or("service")),
+        (None, true, None) => unique_name(&st, &default_name(&command, &cwd)),
         _ => return Err("save needs a <name>".into()),
     };
     if !valid_name(&name) {
@@ -179,6 +179,24 @@ fn save_pane(
     }
     store::save_to(&path, &st)?;
     Ok(svc)
+}
+
+/// The program the command runs (`cinemix` for `C:\bin\cinemix.cmd`); for package managers,
+/// runtimes and build tools the folder name says more (`npm run start` in `D:\cinemix` -> `cinemix`).
+fn default_name(command: &str, cwd: &str) -> String {
+    let c = command.trim_start_matches("& ");
+    let first = match c.chars().next() {
+        Some(q @ ('\'' | '"')) => c[1..].split(q).next().unwrap_or(""),
+        _ => c.split_whitespace().next().unwrap_or(""),
+    };
+    let file = first.rsplit(['\\', '/']).next().unwrap_or("");
+    let prog = file.split('.').next().unwrap_or("");
+    let folder = cwd.rsplit(['\\', '/']).next().unwrap_or("");
+    match prog {
+        "" | "npm" | "npx" | "pnpm" | "yarn" | "bun" | "deno" | "node" | "cargo" | "go"
+        | "make" | "python" | "python3" | "py" | "uv" | "dotnet" => folder.into(),
+        p => p.into(),
+    }
 }
 
 /// `base`, or `base-2`, `base-3`... when taken. Characters outside the name alphabet become `-`.
@@ -265,4 +283,23 @@ fn list(json: bool) -> R<()> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod name_tests {
+    use super::default_name;
+
+    #[test]
+    fn names_come_from_the_program() {
+        assert_eq!(
+            default_name(r"C:\Users\u\.local\bin\cinemix.cmd", r"C:\Users\u"),
+            "cinemix"
+        );
+        assert_eq!(default_name("cswap auto --tui", r"C:\Users\u"), "cswap");
+        assert_eq!(default_name("npm run start", r"D:\cinemix"), "cinemix");
+        assert_eq!(
+            default_name(r"& 'C:\Program Files\x\srv.exe' -p 1", "/home/u"),
+            "srv"
+        );
+    }
 }

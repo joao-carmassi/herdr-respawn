@@ -1,6 +1,6 @@
 id = "herdr-respawn"
 name = "Respawn"
-version = "0.1.0"
+version = "0.1.1"
 min_herdr_version = "0.9.5"
 description = "Saves long-running pane processes (dev servers) and re-runs them in their pane when herdr restarts"
 platforms = ["linux", "macos", "windows"]

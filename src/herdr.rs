@@ -105,6 +105,7 @@ impl Herdr for Cli {
         self.get(&["api", "snapshot"], "/result/snapshot")
     }
     fn process_info(&self, pane: &str) -> R<ProcInfo> {
+        #[cfg_attr(not(windows), allow(unused_mut))]
         let mut info: ProcInfo = self.get(
             &["pane", "process-info", "--pane", pane],
             "/result/process_info",

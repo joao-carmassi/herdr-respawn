@@ -1,0 +1,1 @@
+{"id":"cli:pane:process_info","result":{"process_info":{"foreground_process_group_id":4242,"foreground_processes":[{"argv":["node","/home/dev/app/node_modules/.bin/vite","--port","3000"],"argv0":"node","cmdline":"node /home/dev/app/node_modules/.bin/vite --port 3000","cwd":"/home/dev/app","name":"node","pid":4242}],"pane_id":"w1:p1","shell_pid":4100},"type":"pane_process_info"}}

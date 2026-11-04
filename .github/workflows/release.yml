@@ -1,0 +1,95 @@
+# On a tag `vX.Y.Z`: builds every platform and attaches `herdr-respawn-<os>-<arch>[.exe]` + `.sha256` to the
+# release. bin/fetch.sh and bin/fetch.ps1 download exactly these names. The tag must match the version in
+# Cargo.toml and herdr-plugin.toml.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl, runner: ubuntu-24.04, file: herdr-respawn-linux-x86_64, musl: true }
+          - { target: aarch64-unknown-linux-musl, runner: ubuntu-24.04-arm, file: herdr-respawn-linux-aarch64, musl: true }
+          - { target: x86_64-apple-darwin, runner: macos-14, file: herdr-respawn-macos-x86_64, norun: true }
+          - { target: aarch64-apple-darwin, runner: macos-14, file: herdr-respawn-macos-aarch64 }
+          - { target: x86_64-pc-windows-msvc, runner: windows-latest, file: herdr-respawn-windows-x86_64.exe, windows: true }
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches the versions in Cargo.toml and herdr-plugin.toml
+        run: |
+          version="${TAG#v}"
+          grep -qx "version = \"$version\"" Cargo.toml || { echo "::error::Cargo.toml version is not $version"; exit 1; }
+          grep -qx "version = \"$version\"" herdr-plugin.toml || { echo "::error::herdr-plugin.toml version is not $version"; exit 1; }
+
+      - run: rustup target add ${{ matrix.target }}
+      - name: Install musl tools
+        if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Name the file and write its checksum
+        run: |
+          mkdir dist
+          bin=target/${{ matrix.target }}/release/herdr-respawn
+          if [ "${{ matrix.windows }}" = true ]; then bin="$bin.exe"; fi
+          cp "$bin" "dist/${{ matrix.file }}"
+          cd dist
+          if command -v sha256sum >/dev/null; then sha256sum "${{ matrix.file }}" > "${{ matrix.file }}.sha256"
+          else shasum -a 256 "${{ matrix.file }}" > "${{ matrix.file }}.sha256"; fi
+          cat "${{ matrix.file }}.sha256"
+
+      - name: Smoke test
+        if: ${{ !matrix.norun }}
+        run: |
+          out=$(dist/${{ matrix.file }} version)
+          echo "$out"
+          [ "$out" = "herdr-respawn ${TAG#v}" ]
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.file }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Every file and checksum is there
+        working-directory: dist
+        run: |
+          for f in herdr-respawn-linux-x86_64 herdr-respawn-linux-aarch64 herdr-respawn-macos-x86_64 herdr-respawn-macos-aarch64 herdr-respawn-windows-x86_64.exe; do
+            [ -s "$f" ] && [ -s "$f.sha256" ] || { echo "::error::$f or its checksum is missing"; exit 1; }
+            sha256sum -c "$f.sha256"
+          done
+
+      - name: Attach them to the release
+        working-directory: dist
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          gh release upload "$TAG" herdr-respawn-* --clobber

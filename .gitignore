@@ -1,0 +1,5 @@
+/target
+/bin/herdr-respawn
+/bin/herdr-respawn.exe
+/bin/*.sha256
+/bin/.*download

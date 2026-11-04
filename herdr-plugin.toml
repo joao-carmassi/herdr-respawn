@@ -1,0 +1,36 @@
+id = "herdr-respawn"
+name = "Respawn"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "Saves long-running pane processes (dev servers) and re-runs them in their pane when herdr restarts"
+platforms = ["linux", "macos", "windows"]
+
+[[build]]
+platforms = ["linux", "macos"]
+command = ["sh", "bin/fetch.sh"]
+
+[[build]]
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "bin/fetch.ps1"]
+
+[[startup]]
+command = ["./bin/herdr-respawn", "startup"]
+
+# One entry per action for all platforms: herdr rejects duplicate ids, and appends .exe on Windows (0.9.0+).
+[[actions]]
+id = "restore"
+title = "Respawn: restore saved processes now"
+contexts = ["global"]
+command = ["./bin/herdr-respawn", "restore"]
+
+[[actions]]
+id = "save"
+title = "Respawn: save this pane's process"
+contexts = ["pane"]
+command = ["./bin/herdr-respawn", "save", "--from-context"]
+
+[[actions]]
+id = "forget"
+title = "Respawn: forget this pane"
+contexts = ["pane"]
+command = ["./bin/herdr-respawn", "remove", "--from-context"]

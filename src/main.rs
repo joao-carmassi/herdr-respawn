@@ -7,9 +7,10 @@ mod winproc;
 use herdr::{Cli, Herdr, R};
 use store::{Service, Store};
 
-const USAGE: &str = "usage: herdr-respawn <save|list|remove|restore|startup|version>
+const USAGE: &str = "usage: herdr-respawn <save|toggle|list|remove|restore|startup|version>
   save <name> [--pane ID] [--cwd PATH] [-- <command...>]
   save --from-context          (plugin action)
+  toggle                       (plugin action: save the focused pane, or forget it if saved)
   list [--json]
   remove <name> | remove --from-context
   restore [--name NAME]
@@ -33,6 +34,7 @@ fn dispatch(args: &[String]) -> R<()> {
     match args.first().map(String::as_str) {
         Some("version") => println!("herdr-respawn {}", env!("CARGO_PKG_VERSION")),
         Some("save") => save(rest)?,
+        Some("toggle") => toggle()?,
         Some("list") => list(rest.iter().any(|a| a == "--json"))?,
         Some("remove") => remove(rest)?,
         Some("restore") => restore_cmd(rest, false)?,
@@ -77,6 +79,24 @@ fn valid_name(n: &str) -> bool {
     !n.is_empty()
         && n.chars()
             .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+}
+
+/// The pane's process is saved if it isn't yet, forgotten if it is: one key does both.
+fn toggle() -> R<()> {
+    let pane = pane_from_context()?;
+    let path = store::path()?;
+    let mut st = store::load_from(&path)?;
+    let (gone, kept): (Vec<_>, Vec<_>) = st.services.drain(..).partition(|s| s.pane_id == pane);
+    if gone.is_empty() {
+        return save(&["--from-context".to_string()]);
+    }
+    st.services = kept;
+    store::save_to(&path, &st)?;
+    let names: Vec<_> = gone.iter().map(|s| s.name.as_str()).collect();
+    let msg = format!("{} no longer restarts with herdr", names.join(", "));
+    Cli.notify("Respawn: removed", &msg);
+    println!("{msg}");
+    Ok(())
 }
 
 fn save(args: &[String]) -> R<()> {

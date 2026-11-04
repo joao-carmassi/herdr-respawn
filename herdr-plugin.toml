@@ -1,6 +1,6 @@
 id = "herdr-respawn"
 name = "Respawn"
-version = "0.1.1"
+version = "0.1.2"
 min_herdr_version = "0.9.5"
 description = "Saves long-running pane processes (dev servers) and re-runs them in their pane when herdr restarts"
 platforms = ["linux", "macos", "windows"]
@@ -22,6 +22,12 @@ id = "restore"
 title = "Respawn: restore saved processes now"
 contexts = ["global"]
 command = ["./bin/herdr-respawn", "restore"]
+
+[[actions]]
+id = "toggle"
+title = "Respawn: save this pane, or forget it if saved"
+contexts = ["pane"]
+command = ["./bin/herdr-respawn", "toggle"]
 
 [[actions]]
 id = "save"

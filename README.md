@@ -19,17 +19,22 @@ to `cargo build --release` if there is no matching release.
 
 Start the process in a pane (`npm run start`), then do one of:
 
-- Run the plugin action **`herdr-respawn.save`** ("Respawn: save this pane's process") with the pane
-  focused. Bind it to a key in herdr's `config.toml`:
+- Run the plugin action **`herdr-respawn.toggle`** ("Respawn: save this pane, or forget it if saved")
+  with the pane focused. Pressed again on a saved pane, it forgets it. Bind it to a key in herdr's
+  `config.toml`:
 
   ```toml
   [[keys.command]]
   key = "prefix+r"
   type = "plugin_action"
-  command = "herdr-respawn.save"
+  command = "herdr-respawn.toggle"
   ```
 
-  The service is named after the directory (`my-app`, `my-app-2`, ...). The command is rebuilt from
+  Each press shows a herdr notification ("saved" or "removed"). herdr only shows them when
+  `[ui.toast] delivery` is not `"off"` in its `config.toml`.
+
+  The service is named after the program it runs (`cinemix`, `cinemix-2`, ...), or after the
+  directory for package managers and runtimes (`npm run start` in `my-app` is `my-app`). The command is rebuilt from
   the running process (`node .../npm-cli.js run start` becomes `npm run start`), so it works on a
   pane that is busy running it. Panes running an agent are refused.
 - Or use the CLI. In the target pane the process is not running yet, so pass the command:
@@ -39,7 +44,7 @@ Start the process in a pane (`npm run start`), then do one of:
   herdr-respawn save cinemix --pane w5:p1K        # take the command from that pane's process
   ```
 
-Other actions: **`herdr-respawn.forget`** (forget this pane's service) and **`herdr-respawn.restore`**
+Other actions: **`herdr-respawn.save`** (save only), **`herdr-respawn.forget`** (forget this pane's service) and **`herdr-respawn.restore`**
 (restore everything now). The same from the CLI:
 
 ```sh
